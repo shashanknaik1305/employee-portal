@@ -1,11 +1,35 @@
-function App() {
-  return (
-    <div>
-      <h1>Employee Portal</h1>
+import { useState } from "react";
 
-      <p>Welcome to Employee Portal</p>
-    </div>
-  );
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Dashboard from "./pages/Dashboard";
+
+function App() {
+
+    const [loggedIn, setLoggedIn] = useState(
+        !!localStorage.getItem("access_token")
+    );
+
+    const [showLogin, setShowLogin] = useState(true);
+
+    if (loggedIn) {
+        return <Dashboard setLoggedIn={setLoggedIn} />;
+    }
+
+    return (
+        <>
+            {
+                showLogin
+                    ? <Login
+                        setLoggedIn={setLoggedIn}
+                        setShowLogin={setShowLogin}
+                    />
+                    : <Signup
+                        setShowLogin={setShowLogin}
+                    />
+            }
+        </>
+    );
 }
 
 export default App;

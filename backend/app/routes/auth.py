@@ -4,6 +4,12 @@ from app.config.database import get_connection
 import uuid
 from werkzeug.utils import secure_filename
 import os
+from flask_jwt_extended import create_access_token
+from flask_jwt_extended import (
+    create_access_token,
+    jwt_required,
+    get_jwt_identity
+)
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 
@@ -104,8 +110,17 @@ def login():
             stored_password_hash.encode("utf-8")
         ):
 
+            access_token = create_access_token(
+                identity=str(user[0]),
+                additional_claims={
+                    "name": user[1],
+                    "email": user[2]
+                }
+            )
+
             return jsonify({
                 "message": "Login successful",
+                "access_token": access_token,
                 "user": {
                     "id": user[0],
                     "name": user[1],
@@ -113,10 +128,15 @@ def login():
                 }
             }), 200
 
-        return jsonify({"message": "Invalid email or password"}), 401
+        else:
+            return jsonify({
+                "message": "Invalid email or password"
+            }), 401
 
     except Exception as e:
-        return jsonify({"message": str(e)}), 500
+        return jsonify({
+            "message": str(e)
+        }), 500
 
 def allowed_file(filename):
     return (
@@ -125,6 +145,7 @@ def allowed_file(filename):
     )
 
 @auth.route("/upload/photo", methods=["POST"])
+@jwt_required()
 def upload_photo():
 
     # Check if a file was uploaded
@@ -134,10 +155,7 @@ def upload_photo():
     file = request.files["photo"]
 
     # Get email from form-data
-    email = request.form.get("email")
-
-    if not email:
-        return jsonify({"message": "Email is required"}), 400
+    user_id = get_jwt_identity()
 
     # Check if filename is empty
     if file.filename == "":
@@ -176,11 +194,11 @@ def upload_photo():
             """
             UPDATE users
             SET profile_photo = %s
-            WHERE email = %s
+            WHERE id = %s
             """,
             (
                 f"uploads/profile_photos/{unique_filename}",
-                email
+                user_id
             )
         )
 
@@ -207,6 +225,7 @@ def allowed_resume(filename):
     )
 
 @auth.route("/upload/resume", methods=["POST"])
+@jwt_required()
 def upload_resume():
 
     if "resume" not in request.files:
@@ -214,10 +233,7 @@ def upload_resume():
 
     file = request.files["resume"]
 
-    email = request.form.get("email")
-
-    if not email:
-        return jsonify({"message": "Email is required"}), 400
+    user_id = get_jwt_identity()
 
     if file.filename == "":
         return jsonify({"message": "No file selected"}), 400
@@ -245,11 +261,11 @@ def upload_resume():
             """
             UPDATE users
             SET resume_file = %s
-            WHERE email = %s
+            WHERE id = %s
             """,
             (
                 f"uploads/resumes/{unique_filename}",
-                email
+                user_id
             )
         )
 
