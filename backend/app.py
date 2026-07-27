@@ -1,16 +1,13 @@
 from flask import Flask
-from app.config.database import get_connection
+from app.routes.auth import auth
 
 app = Flask(__name__)
 
+app.register_blueprint(auth)
+
 @app.route("/")
 def home():
-    try:
-        conn = get_connection()
-        conn.close()
-        return "Database Connected Successfully!"
-    except Exception as e:
-        return f"Database Connection Failed: {e}"
+    return "Employee Portal Backend Running"
 
 if __name__ == "__main__":
     app.run(debug=True)
