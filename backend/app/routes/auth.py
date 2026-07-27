@@ -1,6 +1,26 @@
 from flask import Blueprint, request, jsonify
 import bcrypt
 from app.config.database import get_connection
+import uuid
+from werkzeug.utils import secure_filename
+import os
+
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
+
+UPLOAD_FOLDER = os.path.join(
+    os.getcwd(),
+    "app",
+    "uploads",
+    "profile_photos"
+)
+ALLOWED_RESUME_EXTENSIONS = {"pdf"}
+
+RESUME_UPLOAD_FOLDER = os.path.join(
+    os.getcwd(),
+    "app",
+    "uploads",
+    "resumes"
+)
 
 auth = Blueprint("auth", __name__)
 
@@ -94,6 +114,154 @@ def login():
             }), 200
 
         return jsonify({"message": "Invalid email or password"}), 401
+
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
+
+def allowed_file(filename):
+    return (
+        "." in filename and
+        filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    )
+
+@auth.route("/upload/photo", methods=["POST"])
+def upload_photo():
+
+    # Check if a file was uploaded
+    if "photo" not in request.files:
+        return jsonify({"message": "No file uploaded"}), 400
+
+    file = request.files["photo"]
+
+    # Get email from form-data
+    email = request.form.get("email")
+
+    if not email:
+        return jsonify({"message": "Email is required"}), 400
+
+    # Check if filename is empty
+    if file.filename == "":
+        return jsonify({"message": "No file selected"}), 400
+
+    # Validate file extension
+    if not allowed_file(file.filename):
+        return jsonify({
+            "message": "Only PNG, JPG and JPEG files are allowed"
+        }), 400
+
+    # Create a safe filename
+    filename = secure_filename(file.filename)
+
+    # Generate a unique filename
+    unique_filename = f"{uuid.uuid4()}_{filename}"
+
+    # Build full file path
+    file_path = os.path.join(
+        UPLOAD_FOLDER,
+        unique_filename
+    )
+
+    # Ensure upload folder exists
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+    # Save file
+    file.save(file_path)
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Update database
+        cur.execute(
+            """
+            UPDATE users
+            SET profile_photo = %s
+            WHERE email = %s
+            """,
+            (
+                f"uploads/profile_photos/{unique_filename}",
+                email
+            )
+        )
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            "message": "Profile photo uploaded successfully",
+            "filename": unique_filename
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "message": str(e)
+        }), 500
+
+def allowed_resume(filename):
+    return (
+        "." in filename and
+        filename.rsplit(".", 1)[1].lower()
+        in ALLOWED_RESUME_EXTENSIONS
+    )
+
+@auth.route("/upload/resume", methods=["POST"])
+def upload_resume():
+
+    if "resume" not in request.files:
+        return jsonify({"message": "No file uploaded"}), 400
+
+    file = request.files["resume"]
+
+    email = request.form.get("email")
+
+    if not email:
+        return jsonify({"message": "Email is required"}), 400
+
+    if file.filename == "":
+        return jsonify({"message": "No file selected"}), 400
+
+    if not allowed_resume(file.filename):
+        return jsonify({"message": "Only PDF files are allowed"}), 400
+
+    filename = secure_filename(file.filename)
+    unique_filename = f"{uuid.uuid4()}_{filename}"
+
+    os.makedirs(RESUME_UPLOAD_FOLDER, exist_ok=True)
+
+    file_path = os.path.join(
+        RESUME_UPLOAD_FOLDER,
+        unique_filename
+    )
+
+    file.save(file_path)
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE users
+            SET resume_file = %s
+            WHERE email = %s
+            """,
+            (
+                f"uploads/resumes/{unique_filename}",
+                email
+            )
+        )
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            "message": "Resume uploaded successfully",
+            "filename": unique_filename
+        }), 200
 
     except Exception as e:
         return jsonify({"message": str(e)}), 500
