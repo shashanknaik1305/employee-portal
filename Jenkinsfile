@@ -1,3 +1,4 @@
+```groovy
 pipeline {
     agent any
 
@@ -32,33 +33,32 @@ pipeline {
             }
         }
 
-stage('Login to Amazon ECR') {
-    steps {
-        withCredentials([
-            usernamePassword(
-                credentialsId: 'aws-ecr-creds',
-                usernameVariable: 'AWS_ACCESS_KEY_ID',
-                passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-            )
-        ]) {
-            sh '''
-            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        stage('Login to Amazon ECR') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-ecr-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                    export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                    export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
-            aws ecr get-login-password \
-            --region $AWS_REGION | \
-            docker login \
-            --username AWS \
-            --password-stdin \
-            $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-            '''
+                    aws ecr get-login-password \
+                    --region $AWS_REGION | \
+                    docker login \
+                    --username AWS \
+                    --password-stdin \
+                    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                    '''
+                }
+            }
         }
-    }
-}
 
         stage('Tag Images') {
             steps {
-
                 sh '''
                 docker tag employee-portal-backend:latest \
                 $ECR_BACKEND:latest
@@ -71,61 +71,48 @@ stage('Login to Amazon ECR') {
 
         stage('Push Images') {
             steps {
-
                 sh '''
                 docker push $ECR_BACKEND:latest
                 docker push $ECR_FRONTEND:latest
                 '''
             }
         }
+
         stage('Deploy to EC2') {
+            steps {
 
-    steps {
+                sshagent(credentials: ['ec2-ssh']) {
 
-        withCredentials([
-            usernamePassword(
-                credentialsId: 'aws-ecr-creds',
-                usernameVariable: 'AWS_ACCESS_KEY_ID',
-                passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-            )
-        ]) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ubuntu@65.2.183.220 '
+                    mkdir -p /home/ubuntu/employee-portal
+                    '
 
-            sshagent(credentials: ['ec2-ssh']) {
+                    scp -o StrictHostKeyChecking=no \
+                    docker-compose.yml \
+                    ubuntu@65.2.183.220:/home/ubuntu/employee-portal/
 
-                sh """
-                ssh -o StrictHostKeyChecking=no ubuntu@65.2.183.220 '
-                mkdir -p /home/ubuntu/employee-portal
-                '
+                    scp -o StrictHostKeyChecking=no \
+                    .env \
+                    ubuntu@65.2.183.220:/home/ubuntu/employee-portal/
 
-                scp -o StrictHostKeyChecking=no \
-                docker-compose.yml \
-                ubuntu@65.2.183.220:/home/ubuntu/employee-portal/
+                    ssh -o StrictHostKeyChecking=no ubuntu@65.2.183.220 '
+                    aws ecr get-login-password \
+                    --region ${AWS_REGION} | docker login \
+                    --username AWS \
+                    --password-stdin \
+                    ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
-                scp -o StrictHostKeyChecking=no \
-                .env \
-                ubuntu@65.2.183.220:/home/ubuntu/employee-portal/
+                    cd /home/ubuntu/employee-portal
 
-                ssh -o StrictHostKeyChecking=no ubuntu@65.2.183.220 '
-                export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-                export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+                    docker compose pull
 
-                aws ecr get-login-password \
-                --region ${AWS_REGION} | docker login \
-                --username AWS \
-                --password-stdin \
-                ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-
-                cd /home/ubuntu/employee-portal
-
-                docker compose pull
-
-                docker compose up -d
-                '
-                """
+                    docker compose up -d
+                    '
+                    """
+                }
             }
         }
-    }
-}
     }
 
     post {
@@ -139,3 +126,4 @@ stage('Login to Amazon ECR') {
         }
     }
 }
+```
