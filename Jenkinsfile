@@ -78,6 +78,54 @@ stage('Login to Amazon ECR') {
                 '''
             }
         }
+        stage('Deploy to EC2') {
+
+    steps {
+
+        withCredentials([
+            usernamePassword(
+                credentialsId: 'aws-ecr-creds',
+                usernameVariable: 'AWS_ACCESS_KEY_ID',
+                passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+            )
+        ]) {
+
+            sshagent(credentials: ['ec2-ssh']) {
+
+                sh """
+                ssh -o StrictHostKeyChecking=no ubuntu@65.2.183.220 '
+                mkdir -p /home/ubuntu/employee-portal
+                '
+
+                scp -o StrictHostKeyChecking=no \
+                docker-compose.yml \
+                ubuntu@65.2.183.220:/home/ubuntu/employee-portal/
+
+                scp -o StrictHostKeyChecking=no \
+                .env \
+                ubuntu@65.2.183.220:/home/ubuntu/employee-portal/
+
+                ssh -o StrictHostKeyChecking=no ubuntu@65.2.183.220 '
+                export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+                export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+                aws ecr get-login-password \
+                --region ${AWS_REGION} | docker login \
+                --username AWS \
+                --password-stdin \
+                ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+
+                cd /home/ubuntu/employee-portal
+
+                docker compose pull
+
+                docker compose up -d
+                '
+                """
+            }
+        }
+    }
+}
     }
 
     post {
