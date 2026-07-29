@@ -3,11 +3,8 @@ version: "3.9"
 services:
 
   db:
-
     image: postgres:16
-
     container_name: employee-db
-
     restart: always
 
     environment:
@@ -20,19 +17,16 @@ services:
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
 
   backend:
-
-    build:
-      context: ./backend
+    image: 984445750388.dkr.ecr.ap-south-1.amazonaws.com/employee-portal-backend:latest
 
     container_name: employee-backend
 
     restart: always
 
     env_file:
-      - ./backend/.env.docker
+      - .env
 
     ports:
       - "5000:5000"
@@ -41,20 +35,17 @@ services:
       - db
 
   frontend:
-
-    build:
-      context: ./frontend
+    image: 984445750388.dkr.ecr.ap-south-1.amazonaws.com/employee-portal-frontend:latest
 
     container_name: employee-frontend
 
     restart: always
 
     ports:
-      - "5173:80"
+      - "80:80"
 
     depends_on:
       - backend
 
 volumes:
-
   postgres_data:
