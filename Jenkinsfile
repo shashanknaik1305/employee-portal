@@ -89,11 +89,11 @@ pipeline {
 
                     scp -o StrictHostKeyChecking=no \
                     docker-compose.yml \
-                    ubuntu@65.2.183.220:/home/ubuntu/employee-portal/
+                    ubuntu@13.206.223.140:/home/ubuntu/employee-portal/
 
                     scp -o StrictHostKeyChecking=no \
                     .env \
-                    ubuntu@65.2.183.220:/home/ubuntu/employee-portal/
+                    ubuntu@13.206.223.140:/home/ubuntu/employee-portal/
 
                     ssh -o StrictHostKeyChecking=no ubuntu@13.206.223.140 '
                     aws ecr get-login-password \
