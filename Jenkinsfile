@@ -83,7 +83,7 @@ pipeline {
                 sshagent(credentials: ['ec2-ssh']) {
 
                     sh """
-                    ssh -o StrictHostKeyChecking=no ubuntu@65.2.183.220 '
+                    ssh -o StrictHostKeyChecking=no ubuntu@13.206.223.140 '
                     mkdir -p /home/ubuntu/employee-portal
                     '
 
@@ -95,7 +95,7 @@ pipeline {
                     .env \
                     ubuntu@65.2.183.220:/home/ubuntu/employee-portal/
 
-                    ssh -o StrictHostKeyChecking=no ubuntu@65.2.183.220 '
+                    ssh -o StrictHostKeyChecking=no ubuntu@13.206.223.140 '
                     aws ecr get-login-password \
                     --region ${AWS_REGION} | docker login \
                     --username AWS \
