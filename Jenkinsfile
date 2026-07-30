@@ -10,6 +10,9 @@ pipeline {
 
         ECR_BACKEND = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_IMAGE}"
         ECR_FRONTEND = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_IMAGE}"
+
+        EC2_HOST = "13.126.85.16"
+        REMOTE_DIR = "/home/ubuntu/employee-portal"
     }
 
     stages {
@@ -59,11 +62,8 @@ pipeline {
         stage('Tag Images') {
             steps {
                 sh '''
-                docker tag employee-portal-backend:latest \
-                $ECR_BACKEND:latest
-
-                docker tag employee-portal-frontend:latest \
-                $ECR_FRONTEND:latest
+                docker tag employee-portal-backend:latest $ECR_BACKEND:latest
+                docker tag employee-portal-frontend:latest $ECR_FRONTEND:latest
                 '''
             }
         }
@@ -83,30 +83,33 @@ pipeline {
                 sshagent(credentials: ['ec2-ssh']) {
 
                     sh """
-                    ssh -o StrictHostKeyChecking=no ubuntu@13.206.223.140 '
-                    mkdir -p /home/ubuntu/employee-portal
+                    ssh -o StrictHostKeyChecking=no ubuntu@$EC2_HOST '
+                        mkdir -p $REMOTE_DIR
                     '
 
                     scp -o StrictHostKeyChecking=no \
-                    docker-compose.yml \
-                    ubuntu@13.206.223.140:/home/ubuntu/employee-portal/
+                    docker-compose.prod.yml \
+                    ubuntu@$EC2_HOST:$REMOTE_DIR/
 
                     scp -o StrictHostKeyChecking=no \
-                    .env \
-                    ubuntu@13.206.223.140:/home/ubuntu/employee-portal/
+                    .env.prod \
+                    ubuntu@$EC2_HOST:$REMOTE_DIR/
 
-                    ssh -o StrictHostKeyChecking=no ubuntu@13.206.223.140 '
-                    aws ecr get-login-password \
-                    --region ${AWS_REGION} | docker login \
-                    --username AWS \
-                    --password-stdin \
-                    ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                    ssh -o StrictHostKeyChecking=no ubuntu@$EC2_HOST '
+                        aws ecr get-login-password \
+                        --region ${AWS_REGION} | \
+                        docker login \
+                        --username AWS \
+                        --password-stdin \
+                        ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
-                    cd /home/ubuntu/employee-portal
+                        cd $REMOTE_DIR
 
-                    docker compose pull
+                        docker compose -f docker-compose.prod.yml \
+                        --env-file .env.prod pull
 
-                    docker compose up -d
+                        docker compose -f docker-compose.prod.yml \
+                        --env-file .env.prod up -d
                     '
                     """
                 }
@@ -115,7 +118,6 @@ pipeline {
     }
 
     post {
-
         success {
             echo "Pipeline completed successfully!"
         }

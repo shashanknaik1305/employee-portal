@@ -1,0 +1,10 @@
+aws_region         = "ap-south-1"
+iam_user_name      = "terraform-demo-user"
+vpc_cidr           = "10.0.0.0/16"
+vpc_name           = "employee-portal-vpc"
+public_subnet_cidr = "10.0.1.0/24"
+
+availability_zone = "ap-south-1a"
+allowed_ssh_ip    = "49.37.161.244/32"
+instance_type     = "t3.micro"
+key_name          = "employee-portal-key"
